@@ -29,6 +29,12 @@ public class Container {
 		if (this.name == null) this.name = name;
 	}
 	
+	public Container implement(Layer l) {
+		layerName = (String) l.meta.get("name");
+		layer = l;
+		return this;
+	}
+	
 	public Container config(String name, Object data) {
 		config.put(name, data);
 		return this;
@@ -55,13 +61,17 @@ public class Container {
 	}
 	
 	public void init() throws Exception {
-		if (group.provide.get(layerName) == null) {
-			throw new Exception(String.format("[Instance][%s] %s\nimplement %s undefined\nuse provide(... include %s)", name, description, layerName, layerName));
-		}
-		layer = group.provide.get(layerName);
 		if (layer == null) {
-			throw new Exception(String.format("[Instance][%s] %s\nlayer is undefined, use implement(\"name\")", name, description));
+			if (group.provide.get(layerName) == null) {
+				throw new Exception(String.format("[Instance][%s] %s\nimplement %s undefined\nuse provide(... include %s)", name, description, layerName, layerName));
+			}
+			layer = group.provide.get(layerName);
+			if (layer == null) {
+				throw new Exception(String.format("[Instance][%s] %s\nlayer is undefined, use implement(\"name\")", name, description));
+			}
+			layer.init_obj();
 		}
+		
 		if (name == null) name = (String) layer.meta.get("name");
 		
 		if (group.instance.get(name) != null) {
@@ -72,14 +82,16 @@ public class Container {
 	
 	public void deploy() throws Exception {
 		//deploy config
-		var configReq = (HashMap<String, Object>) layer.meta.get("config");
-		configReq.forEach((reqName, fieldName) -> {
+		var configReq = (HashMap<String, ConfigField>) layer.meta.get("config");
+		configReq.forEach((reqName, configField) -> {
 			try {
 				var sd = config.get(reqName);
 				if (sd == null) {
-					throw new Exception(String.format("[Instance][%s] %s\nnot config %s, use config(\"%s\",...)", name, description, reqName, reqName));
+					if (configField.required)
+						throw new Exception(String.format("[Instance][%s] %s\nnot config %s, use config(\"%s\",...)", name, description, reqName, reqName));
+					return;
 				}
-				var field = layer.getClass().getDeclaredField((String) fieldName);
+				var field = layer.getClass().getDeclaredField(configField.fieldName);
 				field.setAccessible(true);
 				field.set(layer, sd);
 			} catch (Exception e) {
@@ -112,5 +124,10 @@ public class Container {
 				}
 			}
 		});
+		try {
+			layer.setup();
+		} catch (Exception e) {
+			throw new Exception(String.format("[Instance][%s] %s\n setup error \n%s ", name, description, e));
+		}
 	}
 }

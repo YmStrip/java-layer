@@ -1,8 +1,8 @@
-package layer.Interface;
+package layer.interfaces;
 
 import layer.entity.Container;
 
 @FunctionalInterface
-public interface handelContainer {
+public interface HandelContainer {
 	void instanceCall(Container c);
 }

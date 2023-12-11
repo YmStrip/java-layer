@@ -5,56 +5,76 @@ package layer;
 
 import layer.entity.Instance;
 import layer.entity.Layer;
+import layer.layer.Logger;
 import org.junit.Test;
-import layer.Interface.*;
+import layer.annotations.*;
 
 
 public class LibraryTest {
-	@layer
-	static class console extends Layer {
+	@LayerClass
+	static class console extends layer.entity.Layer {
 		public void log(String... name) {
 			System.out.println(String.join(" ", name));
 		}
 	}
 	
-	@layer
-	static class fs extends Layer {
-		@require()
+	@LayerClass
+	static class fs extends layer.entity.Layer {
+		@Require()
 		console console;
-		@config()
-		String name;
+		@Require
+		Logger logger;
+		@Config()
+		String version = "0.0.1";
 		
 		public void printName() {
-			console.log("name:" + name);
+			logger.warn("fs版本 v" + version + " 已经过时,强制运行会导致爆炸");
 		}
 	}
 	
-	@layer
-	static class run extends Layer {
-		@require()
+	@LayerClass
+	static class run extends layer.entity.Layer {
+		@Require()
 		fs fs;
+		@Require
+		Logger logger;
 		
 		@Override
 		public void run() {
-			fs.console.log("run success");
+			logger.suc();
+			logger.suc("mount <-> success");
 			fs.printName();
+			fs.logger.info("run finish %s", "code 0");
 		}
 	}
 	
 	@Test
 	public void someLibraryMethodReturnsTrue() {
 		new Instance()
+			.deployInfo()
 			.provide(new Layer[]{
 				new console(),
 				new fs(),
 				new run(),
 			})
+			.instance("fs-logger", t -> t
+				.implement(new Logger())
+				.config("name", "fs")
+			)
+			.instance("run-logger", t -> t
+				.implement(new Logger())
+				.config("name", "run")
+			)
 			.instance("console")
 			.instance("fs", t -> t
 				.config("name", "hhh")
-				.require("console"))
+				.require("console")
+				.require("logger", "fs-logger")
+			)
 			.instance("run", t -> t
-				.require("fs"))
+				.require("fs")
+				.require("logger", "run-logger")
+			)
 			.deploy();
 	}
 }

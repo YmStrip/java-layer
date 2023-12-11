@@ -1,6 +1,8 @@
 package layer.entity;
 
-import layer.Interface.handelContainer;
+import layer.interfaces.HandelContainer;
+import layer.layer.Logger;
+import layer.util.Util;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,17 +21,24 @@ public class Instance {
 		return this;
 	}
 	
-	public Instance instance(handelContainer data) {
+	public Instance instance(HandelContainer data) {
 		var c = new Container(this);
 		data.instanceCall(c);
 		containers.add(c);
 		return this;
 	}
 	
-	public Instance instance(String name, handelContainer data) {
+	public Instance instance(String name, HandelContainer data) {
 		return instance(t -> {
 			t.name(name);
 			data.instanceCall(t);
+		});
+	}
+	
+	public Instance instance(String name, Layer data) {
+		return instance(t -> {
+			t.name(name);
+			t.implement(data);
 		});
 	}
 	
@@ -38,6 +47,7 @@ public class Instance {
 	}
 	
 	public Instance deploy() {
+		var startTime = System.currentTimeMillis();
 		containers.forEach(d -> {
 			try {
 				d.init();
@@ -48,14 +58,16 @@ public class Instance {
 		containers.forEach(d -> {
 			try {
 				d.deploy();
-				if (deployInfo) System.out.printf("[Layer][%s] %s deploy!%n", d.name, d.description);
+				if (deployInfo) Logger.log("Manager", "INFO", String.format("instance %s(abstract %s) %s deploy", d.name, d.layerName,d.description));
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
 		});
-		instance.forEach((name,data) -> {
+		if (deployInfo) Logger.log("Manager","INFO",String.format("deploy all use Σ = %sms",System.currentTimeMillis()-startTime));
+		instance.forEach((name, data) -> {
 			data.run();
 		});
+
 		return this;
 	}
 	
