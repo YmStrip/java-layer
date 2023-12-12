@@ -5,8 +5,8 @@
  */
 package layer;
 
-import layer.entity.Instance;
-import layer.entity.Layer;
+import layer.annotations.Module;
+import layer.entity.*;
 import layer.layer.Logger;
 import org.junit.Test;
 import layer.annotations.*;
@@ -14,16 +14,14 @@ import layer.annotations.*;
 
 public class LibraryTest {
 	@LayerClass
-	static class console extends layer.entity.Layer {
+	class console extends layer.entity.Layer {
 		public void log(String... name) {
 			System.out.println(String.join(" ", name));
 		}
 	}
 	
 	@LayerClass
-	static class fs extends layer.entity.Layer {
-		@Require()
-		console console;
+	class fs extends Layer {
 		@Require
 		Logger logger;
 		@Config()
@@ -35,7 +33,15 @@ public class LibraryTest {
 	}
 	
 	@LayerClass
-	static class run extends layer.entity.Layer {
+	class fs_mysql extends fs {
+		@Override
+		public void setup() {
+			version = "0.0.2";
+		}
+	}
+	
+	@LayerClass
+	class run extends Layer {
 		@Require()
 		fs fs;
 		@Require
@@ -50,6 +56,72 @@ public class LibraryTest {
 		}
 	}
 	
+	@Provider
+	class p0 extends LayerProvider {
+		public String name = "p0";
+		@Require(name = "ch.p1")
+		p1 p1;
+	}
+	
+	@Provider
+	class p1 extends LayerProvider {
+		public String name = "p1";
+		@Require
+		Logger logger;
+	}
+	
+	@Controller
+	class c0 extends LayerController {
+		@Require()
+		p0 p0;
+		
+		public void test() {
+			p0.p1.logger.info("..child.child.logger init ..");
+		}
+		
+		@Override
+		public void run() {
+			test();
+		}
+	}
+	@Module(name = "ch")
+	class module_ch extends LayerModule {
+		public module_ch() {
+			providers = new Layer[]{
+				new p1()
+			};;
+		}
+		
+		@Override
+		public void handelContainer(String name, Container container) {
+			container.require("logger");
+		}
+		
+		@Override
+		public void handelInstance(Instance ins) {
+			ins.instance("logger",t->{
+				t.implement(new Logger());
+				t.config("name","C");
+			});
+		}
+	}
+	
+	@Module(name = "main")
+	class module_main extends LayerModule {
+		public module_main() {
+			providers = new Layer[]{
+				new p0()
+			};
+			controllers = new Layer[]{
+				new c0()
+			};
+			imports = new LayerModule[]{
+				new module_ch()
+			};
+		}
+	}
+	
+	
 	@Test
 	public void someLibraryMethodReturnsTrue() {
 		new Instance()
@@ -57,6 +129,7 @@ public class LibraryTest {
 			.provide(new Layer[]{
 				new console(),
 				new fs(),
+				new fs_mysql(),
 				new run(),
 			})
 			.instance("fs-logger", t -> t
@@ -68,27 +141,28 @@ public class LibraryTest {
 				.config("name", "run")
 			)
 			.instance("console")
+			.instance("fs_mysql",t->t.require("logger","fs-logger"))
 			.instance("fs", t -> t
 				.config("name", "hhh")
 				.require("console")
 				.require("logger", "fs-logger")
 			)
 			.instance("run", t -> t
-				.require("fs")
+				.require("fs", "fs_mysql")
 				.require("logger", "run-logger")
 			)
 			.deploy();
+		LayerModule.deploy(new module_main(){{
+			deployInfo();
+		}});
 	}
 }
-
 
 
 ```
 
 output
 ```shell
-
-
 > Task :lib:compileJava UP-TO-DATE
 > Task :lib:processResources NO-SOURCE
 > Task :lib:classes UP-TO-DATE
@@ -98,18 +172,29 @@ output
 > Task :lib:test
 Picked up _JAVA_OPTIONS: -Djava.net.preferIPv4Stack=true
 
-[2023/12/11 16:39:37][Manager][INFO] instance fs-logger(abstract Logger) no description deploy
-[2023/12/11 16:39:37][Manager][INFO] instance run-logger(abstract Logger) no description deploy
-[2023/12/11 16:39:37][Manager][INFO] instance console(abstract console) no description deploy
-[2023/12/11 16:39:37][Manager][INFO] instance fs(abstract fs) no description deploy
-[2023/12/11 16:39:37][Manager][INFO] instance run(abstract run) no description deploy
-[2023/12/11 16:39:37][Manager][INFO] deploy all use Σ = 21ms
-[2023/12/11 16:39:37][I][SUCCESS] 
-[2023/12/11 16:39:37][I][SUCCESS] mount <-> success
-[2023/12/11 16:39:37][I][WARN] fs版本 v0.0.1 已经过时,强制运行会导致爆炸
-[2023/12/11 16:39:37][I][INFO] run finish code 0
+[2023/12/12 13:05:51][Manager][DEPLOY] [fs-logger] implement Logger no description
+[2023/12/12 13:05:51][Manager][DEPLOY] [run-logger] implement Logger no description
+[2023/12/12 13:05:51][Manager][DEPLOY] [console] implement console no description
+[2023/12/12 13:05:51][Manager][Require] [fs_mysql] logger = <fs-logger>implement Logger abstract Logger
+[2023/12/12 13:05:51][Manager][DEPLOY] [fs_mysql] implement fs_mysql no description
+[2023/12/12 13:05:51][Manager][Require] [fs] logger = <fs-logger>implement Logger abstract Logger
+[2023/12/12 13:05:51][Manager][DEPLOY] [fs] implement fs no description
+[2023/12/12 13:05:51][Manager][Require] [run] logger = <run-logger>implement Logger abstract Logger
+[2023/12/12 13:05:51][Manager][Require] [run] fs = <fs_mysql>implement fs_mysql abstract fs
+[2023/12/12 13:05:51][Manager][DEPLOY] [run] implement run no description
+[2023/12/12 13:05:51][Manager][INFO] deploy all use Σ = 23ms
+[2023/12/12 13:05:51][I][SUCCESS] 
+[2023/12/12 13:05:51][I][SUCCESS] mount <-> success
+[2023/12/12 13:05:51][I][WARN] fs版本 v0.0.2 已经过时,强制运行会导致爆炸
+[2023/12/12 13:05:51][I][INFO] run finish code 0
+[2023/12/12 13:05:51][Manager][Require] [provider.p1] logger = <logger>implement Logger abstract Logger
+[2023/12/12 13:05:51][Manager][Require] [provider.p0] p1 = <ch.provider.p1>implement p1 abstract p1
+[2023/12/12 13:05:51][Manager][DEPLOY] [provider.p0] implement provider.p0 no description
+[2023/12/12 13:05:51][Manager][Require] [controller.c0] p0 = <provider.p0>implement p0 abstract p0
+[2023/12/12 13:05:51][Manager][DEPLOY] [controller.c0] implement controller.c0 no description
+[2023/12/12 13:05:51][Manager][INFO] deploy all use Σ = 0ms
+[2023/12/12 13:05:51][I][INFO] ..child.child.logger init ..
 BUILD SUCCESSFUL in 1s
 3 actionable tasks: 1 executed, 2 up-to-date
-16:39:37: 执行完成 ':lib:test --tests "layer.LibraryTest"'。
-
+13:05:52: 执行完成 ':lib:test --tests "layer.LibraryTest"'。
 ```
