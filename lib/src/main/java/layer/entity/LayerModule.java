@@ -1,11 +1,66 @@
 package layer.entity;
 
+import layer.annotations.Module;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class LayerModule {
-	public LayerModule() {
-		reInit();
+	public String getName() {
+		var name = getClass().getSimpleName();
+		var annotations = getClass().getAnnotations();
+		for (var i : annotations) {
+			if (i instanceof Module m) {
+				if (m.name().isEmpty()) continue;
+				name = m.name();
+			}
+		}
+		return name;
+	}
+	
+	public String name;
+	public ArrayList<Object> includes = new ArrayList<>();
+	public ArrayList<Layer> layers = new ArrayList<>();
+	public ArrayList<Object> imports = new ArrayList<>();
+	public HashMap<String, Object> config = new HashMap<>();
+	
+	public LayerModule controller(Object... l) {
+		includes.addAll(Arrays.asList(l));
+		return this;
+	}
+	
+	public LayerModule provider(Object... l) {
+		includes.addAll(Arrays.asList(l));
+		return this;
+	}
+	
+	public LayerModule imports(Object... l) {
+		imports.addAll(Arrays.asList(l));
+		return this;
+	}
+	
+	public void handelInstance(Instance ins) {
+	}
+	
+	public void handelContainer(String name, Container container) {
+	}
+	
+	public void init() {
+		layers.clear();
+		config.clear();
+		String LastName = null;
+		for (var i : includes) {
+			if (i instanceof Layer l) {
+				l.reInit();
+				var name = l.meta.get("name");
+				LastName = (String) name;
+				layers.add(l);
+			} else if (i instanceof HashMap<?, ?> h) {
+				if (LastName == null) continue;
+				config.put(LastName, h);
+			}
+		}
 	}
 	
 	public boolean deployInfo = false;
@@ -14,55 +69,15 @@ public class LayerModule {
 		deployInfo = true;
 	}
 	
-	public void reInit() {
-		this.name = moduleName(this);
-	}
-	
-	public String name;
-	public Object[] controllers = new Object[]{};
-	public Object[] providers = new Object[]{};
-	public LayerModule[] imports = new LayerModule[]{};
-	
-	public void handelInstance(Instance ins) {
-	}
-	
-	public void handelContainer(String name, Container container) {
-	}
-	
-	static void initConfig(Object[] data, ArrayList<Layer> layer, HashMap<String, Object> map) {
-		String LastName = null;
-		for (var i : data) {
-			if (i instanceof Layer l) {
-				var name = l.meta.get("name");
-				LastName = (String) name;
-				layer.add(l);
-			} else if (i instanceof HashMap<?, ?> h) {
-				if (LastName == null) continue;
-				map.put(LastName, h);
-			}
-		}
-	}
-	
-	static String moduleName(LayerModule module) {
-		String moduleName = null;
-		var annotations = module.getClass().getAnnotations();
-		for (var i : annotations) {
-			if (i instanceof layer.annotations.Module m) {
-				moduleName = m.name();
-			}
-		}
-		if (moduleName == null || moduleName.isEmpty()) {
-			moduleName = module.getClass().getSimpleName();
-		}
-		return moduleName;
-	}
-	
+	/*
+	//支持require循环,不支持module循环
 	public static Instance deploy(LayerModule module) {
 		var instance = new Instance();
 		var configs = new HashMap<String, Object>();
 		var layers = new ArrayList<Layer>();
 		var chRequire = new HashMap<String, String>();
-		for (var i : module.imports) {
+		for (var is : module.imports) {
+			if (! (is instanceof LayerModule i)) continue;
 			var name = moduleName(i);
 			var ins = deploy(i);
 			//put - all - instance
@@ -97,4 +112,11 @@ public class LayerModule {
 		instance.deploy();
 		return instance;
 	}
+	
+	//完全循环的module
+	public static Instance extDeploy(LayerModule data) {
+		//模块树展开
+		var extList = new HashMap();
+		return new Instance();
+	}*/
 }

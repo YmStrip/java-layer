@@ -13,7 +13,7 @@ public class Instance {
 	public HashMap<String, Layer> instance = new HashMap<>();
 	public ArrayList<Container> containers = new ArrayList<>();
 	
-	public Instance provide(Layer[] list) {
+	public Instance provide(Layer... list) {
 		for (var i : list) {
 			var name = i.meta.get("name") == null ? i.getClass().getName() : i.meta.get("name") + "";
 			provide.put(name, i);
@@ -45,9 +45,7 @@ public class Instance {
 	public Instance instance(String name) {
 		return instance(t -> t.name(name));
 	}
-	
-	public Instance deploy() {
-		var startTime = System.currentTimeMillis();
+	public Instance init () {
 		containers.forEach(d -> {
 			try {
 				d.init();
@@ -55,6 +53,11 @@ public class Instance {
 				throw new RuntimeException(e);
 			}
 		});
+		return this;
+	}
+	public Instance deploy() {
+		var startTime = System.currentTimeMillis();
+		init();
 		containers.forEach(d -> {
 			try {
 				d.deploy();
@@ -79,4 +82,5 @@ public class Instance {
 		deployInfo = true;
 		return this;
 	}
+	public LayerModule module;
 }

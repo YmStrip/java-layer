@@ -57,7 +57,8 @@ public class LibraryTest {
 	@Provider
 	class p0 extends LayerProvider {
 		public String name = "p0";
-		@Require(name = "ch.p1")
+		@Require()
+		@Import(name = "ch")
 		p1 p1;
 	}
 	
@@ -82,54 +83,39 @@ public class LibraryTest {
 			test();
 		}
 	}
+	
 	@Module(name = "ch")
 	class module_ch extends LayerModule {
 		public module_ch() {
-			providers = new Layer[]{
-				new p1()
-			};;
-		}
-		
-		@Override
-		public void handelContainer(String name, Container container) {
-			container.require("logger");
+			provider(new p1());
 		}
 		
 		@Override
 		public void handelInstance(Instance ins) {
-			ins.instance("logger",t->{
-				t.implement(new Logger());
-				t.config("name","C");
-			});
+			ins.instance("logger",new Logger());
 		}
 	}
 	
 	@Module(name = "main")
 	class module_main extends LayerModule {
 		public module_main() {
-			providers = new Layer[]{
-				new p0()
-			};
-			controllers = new Layer[]{
-				new c0()
-			};
-			imports = new LayerModule[]{
-				new module_ch()
-			};
+			controller(new c0());
+			provider(new p0());
+			imports(new module_ch());
 		}
 	}
-
+	
 	
 	@Test
 	public void someLibraryMethodReturnsTrue() {
 		new Instance()
 			.deployInfo()
-			.provide(new Layer[]{
+			.provide(
 				new console(),
 				new fs(),
 				new fs_mysql(),
-				new run(),
-			})
+				new run()
+			)
 			.instance("fs-logger", t -> t
 				.implement(new Logger())
 				.config("name", "fs")
@@ -139,7 +125,7 @@ public class LibraryTest {
 				.config("name", "run")
 			)
 			.instance("console")
-			.instance("fs_mysql",t->t.require("logger","fs-logger"))
+			.instance("fs_mysql", t -> t.require("logger", "fs-logger"))
 			.instance("fs", t -> t
 				.config("name", "hhh")
 				.require("console")
@@ -150,8 +136,9 @@ public class LibraryTest {
 				.require("logger", "run-logger")
 			)
 			.deploy();
-		LayerModule.deploy(new module_main(){{
-			deployInfo();
-		}});
+		new MInstance()
+			.deployInfo()
+			.module(new module_main())
+			.deploy();
 	}
 }
