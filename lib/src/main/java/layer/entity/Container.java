@@ -1,5 +1,8 @@
 package layer.entity;
 
+import layer.layer.Logger;
+import org.fusesource.jansi.Ansi;
+
 import java.util.HashMap;
 
 public class Container {
@@ -10,6 +13,12 @@ public class Container {
 	public void name(String name) {
 		this.name = name;
 		if (this.layerName == null) this.layerName = name;
+	}
+	
+	public boolean deployInfo = false;
+	
+	public void deployInfo() {
+		deployInfo = true;
 	}
 	
 	public void description(String description) {
@@ -31,6 +40,7 @@ public class Container {
 	
 	public Container implement(Layer l) {
 		layerName = (String) l.meta.get("name");
+		if (name == null) name = layerName;
 		layer = l;
 		return this;
 	}
@@ -69,7 +79,7 @@ public class Container {
 			if (layer == null) {
 				throw new Exception(String.format("[Instance][%s] %s\nlayer is undefined, use implement(\"name\")", name, description));
 			}
-			layer.init_obj();
+			layer.reInit();
 		}
 		
 		if (name == null) name = (String) layer.meta.get("name");
@@ -82,43 +92,53 @@ public class Container {
 	
 	public void deploy() throws Exception {
 		//deploy config
-		var configReq = (HashMap<String, ConfigField>) layer.meta.get("config");
-		configReq.forEach((reqName, configField) -> {
+		var configReq = (HashMap<String, FieldConfig>) layer.meta.get("config");
+		configReq.forEach((reqName, fieldConfig) -> {
 			try {
 				var sd = config.get(reqName);
 				if (sd == null) {
-					if (configField.required)
+					if (fieldConfig.required)
 						throw new Exception(String.format("[Instance][%s] %s\nnot config %s, use config(\"%s\",...)", name, description, reqName, reqName));
 					return;
 				}
-				var field = layer.getClass().getDeclaredField(configField.fieldName);
+				var field = fieldConfig.field;
+				var canAccessible = field.canAccess(layer);
 				field.setAccessible(true);
 				field.set(layer, sd);
+				field.setAccessible(canAccessible);
 			} catch (Exception e) {
 				try {
-					throw new Exception(String.format("[Instance][%s] %s\n config %s error\n%s ", name, description, reqName, e));
+					throw new Exception(String.format("\n[Instance][%s] %s\n config %s error\n%s ", name, description, reqName, e));
 				} catch (Exception ex) {
 					throw new RuntimeException(ex);
 				}
 			}
 		});
-		var requireReq = (HashMap<String, Object>) layer.meta.get("require");
-		requireReq.forEach((reqName, fieldName) -> {
+		var requireReq = (HashMap<String, FieldRequire>) layer.meta.get("require");
+		requireReq.forEach((reqName, fieldRequire) -> {
 			try {
-				var sd = require.get(reqName);
-				if (sd == null) {
-					throw new Exception(String.format("[Instance][%s] %s\nnot require %s, use require(\"%s\",string)", name, description, reqName, reqName));
+				var instanceName = require.get(reqName);
+				if (instanceName == null) {
+					throw new Exception(String.format("\n[Instance][%s] require %s = <?> abstract %s undefined\nuse require(\"implement %s\")", name, fieldRequire.fieldName, fieldRequire.ab, fieldRequire.ab));
 				}
-				var sdData = group.instance.get(sd);
+				var sdData = group.instance.get(instanceName);
 				if (sdData == null) {
-					throw new Exception(String.format("[Instance][%s] %s\nrequire (%s,%s) undefined", name, description, reqName, sd));
+					throw new Exception(String.format("\n[Instance][%s] require %s = <%s>implement %s abstract %s, but implement undefined\nuse instance(\"%s\")", name, fieldRequire.fieldName, instanceName, "?", fieldRequire.ab, instanceName));
 				}
-				var field = layer.getClass().getDeclaredField((String) fieldName);
+				var implementName = sdData.getClass().getSimpleName();
+				var field = fieldRequire.field;
+				var canAccessible = field.canAccess(layer);
 				field.setAccessible(true);
 				field.set(layer, sdData);
+				field.setAccessible(canAccessible);
+				Logger.log(Ansi.Color.YELLOW, Ansi.Color.WHITE, "Manager", "Require", String.format("[%s] %s = <%s>implement %s abstract %s", name, fieldRequire.fieldName, instanceName, implementName, fieldRequire.ab));
 			} catch (Exception e) {
 				try {
-					throw new Exception(String.format("[Instance][%s] %s\n require %s error\n%s ", name, description, reqName, e));
+					var instanceName = require.get(reqName);
+					var sd = require.get(reqName);
+					var sdData = group.instance.get(instanceName);
+					System.out.println(sdData);
+					throw new Exception(String.format("\n[Instance][%s] require %s = implement %s abstract %s error\n%s", name, fieldRequire.fieldName, sd, fieldRequire.ab, e));
 				} catch (Exception ex) {
 					throw new RuntimeException(ex);
 				}

@@ -1,6 +1,9 @@
 package layer.entity;
 
-public class ConfigField {
+import java.lang.reflect.Field;
+
+public class FieldConfig {
 	public boolean required = true;
 	public String fieldName;
+	public Field field;
 }

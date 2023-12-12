@@ -58,16 +58,18 @@ public class Instance {
 		containers.forEach(d -> {
 			try {
 				d.deploy();
-				if (deployInfo) Logger.log("Manager", "INFO", String.format("instance %s(abstract %s) %s deploy", d.name, d.layerName,d.description));
+				if (deployInfo)
+					Logger.log("Manager", "DEPLOY", String.format("[%s] implement %s %s", d.name, d.layerName, d.description));
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
 		});
-		if (deployInfo) Logger.log("Manager","INFO",String.format("deploy all use Σ = %sms",System.currentTimeMillis()-startTime));
+		if (deployInfo)
+			Logger.log("Manager", "INFO", String.format("deploy all use Σ = %sms", System.currentTimeMillis() - startTime));
 		instance.forEach((name, data) -> {
 			data.run();
 		});
-
+		
 		return this;
 	}
 	

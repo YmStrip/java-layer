@@ -3,8 +3,8 @@
  */
 package layer;
 
-import layer.entity.Instance;
-import layer.entity.Layer;
+import layer.annotations.Module;
+import layer.entity.*;
 import layer.layer.Logger;
 import org.junit.Test;
 import layer.annotations.*;
@@ -12,16 +12,14 @@ import layer.annotations.*;
 
 public class LibraryTest {
 	@LayerClass
-	static class console extends layer.entity.Layer {
+	class console extends layer.entity.Layer {
 		public void log(String... name) {
 			System.out.println(String.join(" ", name));
 		}
 	}
 	
 	@LayerClass
-	static class fs extends layer.entity.Layer {
-		@Require()
-		console console;
+	class fs extends Layer {
 		@Require
 		Logger logger;
 		@Config()
@@ -33,7 +31,15 @@ public class LibraryTest {
 	}
 	
 	@LayerClass
-	static class run extends layer.entity.Layer {
+	class fs_mysql extends fs {
+		@Override
+		public void setup() {
+			version = "0.0.2";
+		}
+	}
+	
+	@LayerClass
+	class run extends Layer {
 		@Require()
 		fs fs;
 		@Require
@@ -48,6 +54,72 @@ public class LibraryTest {
 		}
 	}
 	
+	@Provider
+	class p0 extends LayerProvider {
+		public String name = "p0";
+		@Require(name = "ch.p1")
+		p1 p1;
+	}
+	
+	@Provider
+	class p1 extends LayerProvider {
+		public String name = "p1";
+		@Require
+		Logger logger;
+	}
+	
+	@Controller
+	class c0 extends LayerController {
+		@Require()
+		p0 p0;
+		
+		public void test() {
+			p0.p1.logger.info("..child.child.logger init ..");
+		}
+		
+		@Override
+		public void run() {
+			test();
+		}
+	}
+	@Module(name = "ch")
+	class module_ch extends LayerModule {
+		public module_ch() {
+			providers = new Layer[]{
+				new p1()
+			};;
+		}
+		
+		@Override
+		public void handelContainer(String name, Container container) {
+			container.require("logger");
+		}
+		
+		@Override
+		public void handelInstance(Instance ins) {
+			ins.instance("logger",t->{
+				t.implement(new Logger());
+				t.config("name","C");
+			});
+		}
+	}
+	
+	@Module(name = "main")
+	class module_main extends LayerModule {
+		public module_main() {
+			providers = new Layer[]{
+				new p0()
+			};
+			controllers = new Layer[]{
+				new c0()
+			};
+			imports = new LayerModule[]{
+				new module_ch()
+			};
+		}
+	}
+
+	
 	@Test
 	public void someLibraryMethodReturnsTrue() {
 		new Instance()
@@ -55,6 +127,7 @@ public class LibraryTest {
 			.provide(new Layer[]{
 				new console(),
 				new fs(),
+				new fs_mysql(),
 				new run(),
 			})
 			.instance("fs-logger", t -> t
@@ -66,15 +139,19 @@ public class LibraryTest {
 				.config("name", "run")
 			)
 			.instance("console")
+			.instance("fs_mysql",t->t.require("logger","fs-logger"))
 			.instance("fs", t -> t
 				.config("name", "hhh")
 				.require("console")
 				.require("logger", "fs-logger")
 			)
 			.instance("run", t -> t
-				.require("fs")
+				.require("fs", "fs_mysql")
 				.require("logger", "run-logger")
 			)
 			.deploy();
+		LayerModule.deploy(new module_main(){{
+			deployInfo();
+		}});
 	}
 }

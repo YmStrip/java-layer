@@ -3,8 +3,8 @@ package layer.annotations;
 import java.lang.annotation.*;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Documented()
+@Documented
 @Target(ElementType.TYPE)
-public @interface LayerClass {
+public @interface Module {
 	String name() default "";
 }

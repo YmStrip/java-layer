@@ -121,21 +121,23 @@ public class Logger extends Layer {
 	public void err(Object... data) {
 		log("ERROR", data);
 	}
-	
-	public static void log(String name, String type, String data) {
+
+	public static void log(Ansi.Color color, Ansi.Color textColor, String name, String type, String data) {
 		var time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"));
 		System.out.println(Ansi.ansi()
-			.fg(Ansi.Color.BLUE)
+			.fg(color)
 			.a("[" + time + "]")
-			.fg(Ansi.Color.BLUE)
+			.fg(color)
 			.a("[" + name + "]")
-			.fg(Ansi.Color.BLUE)
+			.fg(color)
 			.a("[" + type + "] ")
-			.fg(Ansi.Color.WHITE)
+			.fg(textColor)
 			.a(data)
 			.reset());
 	}
-	
+	public static void log(String name, String type, String data) {
+		log(Ansi.Color.BLUE, Ansi.Color.WHITE,name,type,data);
+	}
 	public Logger() {
 		super();
 	}
