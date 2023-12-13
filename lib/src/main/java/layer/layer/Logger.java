@@ -2,7 +2,7 @@ package layer.layer;
 
 import layer.annotations.Config;
 import layer.annotations.LayerClass;
-import layer.entity.Layer;
+import layer.extend.Layer;
 import org.fusesource.jansi.Ansi;
 
 import java.time.LocalDateTime;

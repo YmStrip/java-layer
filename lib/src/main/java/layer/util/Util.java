@@ -1,19 +1,21 @@
 package layer.util;
 
-import layer.entity.Instance;
-import layer.entity.Layer;
-import layer.interfaces.HandelStore;
+import sun.misc.Unsafe;
 
 public class Util {
-	public static <T extends Layer> T store(T layer, HandelStore handelStore) {
-		var instance = new Instance();
-		instance.instance("_index_", t -> {
-			t.implement(layer);
-			handelStore.HandelContainer(t, instance);
-		});
-		return (T) instance.deploy().instance.get("_index_");
+	public static <T> T newInstance(String name, Class<T> data) {
+		try {
+			//Unsafe.
+			//不安全创建
+			//return (T) Unsafe.getUnsafe().allocateInstance(data);
+			return data.newInstance();
+		} catch (Exception e) {
+			System.out.println(e);
+			throw new Error(String.format("[Constructor][%s] constructor error\n%s", name, e));
+		}
 	}
-	public static <T extends Layer> T only(T layer) {
-		return store(layer,((c, i) -> {}));
+	
+	public static <T> T newInstance(Class<T> data) {
+		return newInstance(data.getSimpleName(), data);
 	}
 }

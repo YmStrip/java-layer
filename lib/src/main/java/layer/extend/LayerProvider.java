@@ -1,7 +1,10 @@
-package layer.entity;
+package layer.extend;
 
+import layer.annotations.Provider;
+
+@Provider
 public class LayerProvider extends Layer {
 	public LayerProvider() {
-		//namePrefix = "provider.";
+	
 	}
 }

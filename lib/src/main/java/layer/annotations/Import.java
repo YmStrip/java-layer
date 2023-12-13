@@ -7,4 +7,6 @@ import java.lang.annotation.*;
 @Target(ElementType.FIELD)
 public @interface Import {
 	String name();
+	
+	Class require() default Import.class;
 }

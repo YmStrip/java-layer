@@ -7,4 +7,5 @@ public
 @Documented()
 @Target(ElementType.FIELD) @interface Require {
 	String name() default "";
+	Class require() default Require.class;
 }

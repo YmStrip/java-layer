@@ -4,15 +4,21 @@
 package layer;
 
 import layer.annotations.Module;
-import layer.entity.*;
+import layer.entity.LayerContainer;
+import layer.extend.Layer;
+import layer.extend.LayerController;
+import layer.extend.LayerProvider;
+import layer.instance.InstanceFactory;
 import layer.layer.Logger;
+import layer.module.LayerModule;
+import layer.module.ModuleFactory;
 import org.junit.Test;
 import layer.annotations.*;
 
 
 public class LibraryTest {
 	@LayerClass
-	class console extends layer.entity.Layer {
+	class console extends Layer {
 		public void log(String... name) {
 			System.out.println(String.join(" ", name));
 		}
@@ -39,12 +45,45 @@ public class LibraryTest {
 	}
 	
 	@LayerClass
+	class a extends Layer {
+		@Require
+		Logger logger;
+		@Require
+		b b;
+		
+		public void name() {
+			logger.info("A is a");
+		}
+		
+		@Override
+		public void run() {
+			b.name();
+		}
+	}
+	
+	@LayerClass
+	class b extends Layer {
+		@Require
+		Logger logger;
+		@Require
+		a a;
+		
+		public void name() {
+			logger.info("B is b");
+		}
+		
+		@Override
+		public void run() {
+			a.name();
+		}
+	}
+	
+	@LayerClass
 	class run extends Layer {
 		@Require()
 		fs fs;
 		@Require
 		Logger logger;
-		
 		@Override
 		public void run() {
 			logger.suc();
@@ -60,6 +99,9 @@ public class LibraryTest {
 		@Require()
 		@Import(name = "ch")
 		p1 p1;
+		public void loop() {
+			p1.logger.warn("使用了循环依赖的模块和循环依赖的对象");
+		}
 	}
 	
 	@Provider
@@ -67,13 +109,20 @@ public class LibraryTest {
 		public String name = "p1";
 		@Require
 		Logger logger;
+		@Require(name = "p0")
+		@Import(name = "main")
+		p0 loopObj;
+		
+		@Override
+		public void run() {
+			loopObj.loop();
+		}
 	}
 	
 	@Controller
 	class c0 extends LayerController {
 		@Require()
 		p0 p0;
-		
 		public void test() {
 			p0.p1.logger.info("..child.child.logger init ..");
 		}
@@ -86,13 +135,15 @@ public class LibraryTest {
 	
 	@Module(name = "ch")
 	class module_ch extends LayerModule {
-		public module_ch() {
-			provider(new p1());
+		@Override
+		public void handelInstance(InstanceFactory f) {
+			f.instance("logger", new Logger());
 		}
 		
-		@Override
-		public void handelInstance(Instance ins) {
-			ins.instance("logger",new Logger());
+		public module_ch() {
+			provider(new p1());
+			//循环模块
+			imports("main");
 		}
 	}
 	
@@ -108,13 +159,25 @@ public class LibraryTest {
 	
 	@Test
 	public void someLibraryMethodReturnsTrue() {
-		new Instance()
+		new InstanceFactory()
 			.deployInfo()
-			.provide(
+			.include(
 				new console(),
 				new fs(),
 				new fs_mysql(),
-				new run()
+				new run(),
+				new a(),
+				new b()
+			)
+			.instance("a", t -> {
+			
+			})
+			.instance("b", t -> {
+			
+			})
+			.instance("logger", t -> t
+				.implement(new Logger())
+				.config("name", "I")
 			)
 			.instance("fs-logger", t -> t
 				.implement(new Logger())
@@ -136,9 +199,9 @@ public class LibraryTest {
 				.require("logger", "run-logger")
 			)
 			.deploy();
-		new MInstance()
+		new ModuleFactory()
 			.deployInfo()
-			.module(new module_main())
+			.include(new module_main())
 			.deploy();
 	}
 }
